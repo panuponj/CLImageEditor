@@ -7,13 +7,16 @@
 
 #import "CLImageEditor.h"
 
+
 @interface _CLImageEditorViewController : CLImageEditor
-<UIScrollViewDelegate, UIBarPositioningDelegate>
+<UIScrollViewDelegate, UIBarPositioningDelegate,UIGestureRecognizerDelegate>
 {
     IBOutlet __weak UINavigationBar *_navigationBar;
     IBOutlet __weak UIScrollView *_scrollView;
 }
 @property (nonatomic, strong) UIImageView  *imageView;
+@property (nonatomic,strong) UIView *containerView;
+@property (nonatomic, strong) UIView  *uiView;
 @property (nonatomic, weak) IBOutlet UIScrollView *menuView;
 @property (nonatomic, readonly) UIScrollView *scrollView;
 

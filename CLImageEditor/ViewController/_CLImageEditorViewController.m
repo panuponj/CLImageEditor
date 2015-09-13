@@ -24,6 +24,9 @@
 {
     UIImage *_originalImage;
     UIView *_bgView;
+    //UIView *containerView;
+    BOOL checkZoomImage;
+    CGFloat currentZoomScale;
 }
 @synthesize toolInfo = _toolInfo;
 
@@ -128,7 +131,7 @@
 - (void)initMenuScrollView
 {
     if(self.menuView==nil){
-        UIScrollView *menuScroll = [[UIScrollView alloc] initWithFrame:CGRectMake(0, 0, self.view.width, 80)];
+        UIScrollView *menuScroll = [[UIScrollView alloc] initWithFrame:CGRectMake(0, 0, self.view.width, 150)];
         menuScroll.top = self.view.height - menuScroll.height;
         menuScroll.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleTopMargin;
         menuScroll.showsHorizontalScrollIndicator = NO;
@@ -149,6 +152,9 @@
         imageScroll.showsVerticalScrollIndicator = NO;
         imageScroll.delegate = self;
         imageScroll.clipsToBounds = NO;
+        
+       [imageScroll setDelaysContentTouches:NO];
+      // [imageScroll setCanCancelContentTouches:YES];
         
         CGFloat y = 0;
         if(self.navigationController){
@@ -207,12 +213,33 @@
     [self initImageScrollView];
     
     [self setMenuView];
+    _scrollView.delaysContentTouches = NO;
     
     if(_imageView==nil){
         _imageView = [UIImageView new];
-        [_scrollView addSubview:_imageView];
+        _containerView = [[UIView alloc]init];
+      //  _containerView.frame = _scrollView.frame;
+        _containerView.frame = CGRectMake(0, 0, _scrollView.frame.size.width, _scrollView.frame.size.height);
+    //   [_scrollView addSubview:_imageView];
+        [_scrollView addSubview:_containerView];
+      // bool touchShouldCancel =    [_scrollView touchesShouldCancelInContentView:_imageView];
+        //[self resetUiViewFrame];
+        //[_scrollView addSubview:_uiView];
+        //[_uiView addSubview:_imageView];
+        
         [self refreshImageView];
+        [_containerView addSubview:_imageView];
     }
+    
+    
+    
+    // Listen for Double Tap Zoom
+    UITapGestureRecognizer *doubleTap = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(handleDoubleTap:)];
+    
+    [doubleTap setNumberOfTapsRequired:2];
+    
+    [_scrollView addGestureRecognizer:doubleTap];
+    
 }
 
 - (void)didReceiveMemoryWarning
@@ -407,37 +434,30 @@
     return nil;
 }
 
+
 #pragma mark- 
 
 - (void)setMenuView
 {
-    CGFloat x = 0;
+    CGFloat x = (self.view.bounds.size.width - 210)/2 ;  // set to 50 if want to middle
     CGFloat W = 70;
     CGFloat H = _menuView.height;
-    
-    int toolCount = 0;
-    CGFloat padding = 0;
-    for(CLImageToolInfo *info in self.toolInfo.sortedSubtools){
-        if(info.available){
-            toolCount++;
-        }
-    }
-    
-    CGFloat diff = _menuView.frame.size.width - toolCount * W;
-    if (0<diff && diff<2*W) {
-        padding = diff/(toolCount+1);
-    }
     
     for(CLImageToolInfo *info in self.toolInfo.sortedSubtools){
         if(!info.available){
             continue;
         }
         
-        CLToolbarMenuItem *view = [CLImageEditorTheme menuItemWithFrame:CGRectMake(x+padding, 0, W, H) target:self action:@selector(tappedMenuView:) toolInfo:info];
+        CLToolbarMenuItem *view = [CLImageEditorTheme menuItemWithFrame:CGRectMake(x, 0, W, H) target:self action:@selector(tappedMenuView:) toolInfo:info];
+        view.translatesAutoresizingMaskIntoConstraints = NO;
         [_menuView addSubview:view];
-        x += W+padding;
+     /*   [self.view addConstraint:[NSLayoutConstraint constraintWithItem:view
+ attribute:NSLayoutAttributeCenterY relatedBy:NSLayoutRelationEqual toItem:_menuView attribute:NSLayoutAttributeCenterY multiplier:1 constant:0]];
+        [self.view addConstraint:[NSLayoutConstraint constraintWithItem:view attribute:NSLayoutAttributeCenterX relatedBy:NSLayoutRelationEqual toItem:_menuView attribute:NSLayoutAttributeCenterX multiplier:1 constant:0]];*/
+        x += W;
     }
     _menuView.contentSize = CGSizeMake(MAX(x, _menuView.frame.size.width+1), 0);
+   
 }
 
 - (void)resetImageViewFrame
@@ -449,6 +469,20 @@
         CGFloat H = ratio * size.height * _scrollView.zoomScale;
         
         _imageView.frame = CGRectMake(MAX(0, (_scrollView.width-W)/2), MAX(0, (_scrollView.height-H)/2), W, H);
+       // _containerView.frame = CGRectMake(MAX(0, (_scrollView.width-W)/2), MAX(0, (_scrollView.height-H)/2), W, H);
+    }
+}
+
+
+- (void)resetUiViewFrame
+{
+    CGSize size = (_imageView.image) ? _imageView.image.size : _imageView.frame.size;
+    if(size.width>0 && size.height>0){
+        CGFloat ratio = MIN(_scrollView.frame.size.width / size.width, _scrollView.frame.size.height / size.height);
+        CGFloat W = ratio * size.width * _scrollView.zoomScale;
+        CGFloat H = ratio * size.height * _scrollView.zoomScale;
+        
+        _uiView.frame = CGRectMake(MAX(0, (_scrollView.width-W)/2), MAX(0, (_scrollView.height-H)/2), W, H);
     }
 }
 
@@ -470,9 +504,16 @@
     Rw = MAX(Rw, _imageView.image.size.width / (scale * _scrollView.frame.size.width));
     Rh = MAX(Rh, _imageView.image.size.height / (scale * _scrollView.frame.size.height));
     
-    _scrollView.contentSize = _imageView.frame.size;
+    //_scrollView.contentSize = _imageView.frame.size;
+    _scrollView.contentSize = _containerView.frame.size;
     _scrollView.minimumZoomScale = 1;
-    _scrollView.maximumZoomScale = MAX(MAX(Rw, Rh), 1);
+    //_scrollView.maximumZoomScale = MAX(MAX(Rw, Rh), 1);
+    _scrollView.maximumZoomScale = 4;
+    /*[_scrollView setDelaysContentTouches:NO];
+    BOOL canCancel = _scrollView.canCancelContentTouches;
+    BOOL delay = _scrollView.delaysContentTouches;
+    _scrollView.canCancelContentTouches = YES;*/
+  //  bool cancelCheck = [_scrollView touchesShouldCancelInContentView:_imageView];
     
     [_scrollView setZoomScale:_scrollView.minimumZoomScale animated:animated];
 }
@@ -498,11 +539,6 @@
 - (NSUInteger)supportedInterfaceOrientations
 {
     return UIInterfaceOrientationMaskPortrait;
-}
-
-- (UIStatusBarStyle)preferredStatusBarStyle
-{
-    return [[CLImageEditorTheme theme] statusBarStyle];
 }
 
 #pragma mark- Tool actions
@@ -675,7 +711,9 @@
 
 - (UIView *)viewForZoomingInScrollView:(UIScrollView *)scrollView
 {
-    return _imageView;
+  //  return _imageView;
+    return  _containerView;
+   // return _uiView;
 }
 
 - (void)scrollViewDidZoom:(UIScrollView *)scrollView
@@ -690,5 +728,54 @@
     rct.origin.y = MAX((Hs-H)/2, 0);
     _imageView.frame = rct;
 }
+/*
+- (BOOL)gestureRecognizer:(UIGestureRecognizer *)gestureRecognizer shouldRecognizeSimultaneouslyWithGestureRecognizer:(UIGestureRecognizer *)otherGestureRecognizer
+{
+    return  YES;
+}
+
+- (BOOL) gestureRecognizer:(UIGestureRecognizer *)gestureRecognizer shouldReceiveTouch:(UITouch *)touch
+{
+    if (self.scrollView.superview != nil) {
+        if ([touch.view isKindOfClass:[UIButton class]])
+        {
+            return NO; // ignore the touch
+        }
+    }
+    return YES; // handle the touch
+}
+*/
+
+- (void)handleDoubleTap:(UIGestureRecognizer *)gestureRecognizer {
+    
+    if (_scrollView.zoomScale > _scrollView.minimumZoomScale && _scrollView.zoomScale == _scrollView.maximumZoomScale){
+        checkZoomImage = YES;
+    }
+    if (_scrollView.zoomScale < _scrollView.maximumZoomScale && _scrollView.zoomScale == _scrollView.minimumZoomScale) {
+        checkZoomImage = NO;
+    }
+    currentZoomScale = _scrollView.zoomScale;
+    
+    if (checkZoomImage) {
+        
+        
+        
+        [_scrollView setZoomScale:_scrollView.minimumZoomScale animated:YES];
+    }else{
+        if (currentZoomScale < _scrollView.maximumZoomScale) {
+            currentZoomScale = currentZoomScale + 0.5 ;
+        }
+        
+        if (currentZoomScale > _scrollView.maximumZoomScale) {
+            [_scrollView setZoomScale:_scrollView.maximumZoomScale animated:YES];
+        }
+        else
+        {
+            [_scrollView setZoomScale:currentZoomScale animated:YES];
+        }
+        
+    }
+}
+
 
 @end

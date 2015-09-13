@@ -24,7 +24,8 @@
         _iconView = [[UIImageView alloc] initWithFrame:CGRectMake(10, 5, W-20, W-20)];
         _iconView.clipsToBounds = YES;
         _iconView.layer.cornerRadius = 5;
-        _iconView.contentMode = UIViewContentModeScaleAspectFill;
+      // _iconView.contentMode = UIViewContentModeScaleAspectFill;
+       _iconView.contentMode = UIViewContentModeScaleToFill;
         [self addSubview:_iconView];
         
         _titleLabel = [[UILabel alloc] initWithFrame:CGRectMake(0, _iconView.bottom + 5, W, 15)];

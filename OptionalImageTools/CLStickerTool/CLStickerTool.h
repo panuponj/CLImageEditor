@@ -7,6 +7,10 @@
 
 #import "CLImageToolBase.h"
 
-@interface CLStickerTool : CLImageToolBase
+@interface CLStickerTool : CLImageToolBase <UICollectionViewDataSource,UICollectionViewDelegateFlowLayout>
+{
+UICollectionView *_collectionView;
 
+
+}
 @end

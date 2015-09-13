@@ -24,8 +24,11 @@ const CGFloat kCLFontPickerViewConstantFontSize = 14;
 + (NSArray*)allFontList
 {
     NSMutableArray *list = [NSMutableArray array];
+    NSArray *fontIchepo = [NSArray array];
+    fontIchepo = [fontIchepo arrayByAddingObject:@"torsilp-wadkhen"];
     
-    for(NSString *familyName in [UIFont familyNames]){
+   // for(NSString *familyName in [UIFont familyNames]){
+    for(NSString *familyName in fontIchepo){
         for(NSString *fontName in [UIFont fontNamesForFamilyName:familyName]){
             [list addObject:[UIFont fontWithName:fontName size:kCLFontPickerViewConstantFontSize]];
         }

@@ -339,11 +339,17 @@ static NSString* const kCLTextToolAlignRightIconName = @"alignRightIconAssetsNam
     view.fillColor = _settingView.selectedFillColor;
     view.borderColor = _settingView.selectedBorderColor;
     view.borderWidth = _settingView.selectedBorderWidth;
-    view.font = _settingView.selectedFont;
-    
+   view.font = _settingView.selectedFont;
+  // view.font = [ UIFont fontWithName: @"torsilp-wadkhen" size: 18.0 ];
+    //NSLog(@"font size: %f",_settingView.selectedFont.pointSize) ;
+    NSLog(@"before ratio text view height: %f",view.frame.size.height);
     CGFloat ratio = MIN( (0.8 * _workingView.width) / view.width, (0.2 * _workingView.height) / view.height);
     [view setScale:ratio];
-    view.center = CGPointMake(_workingView.width/2, view.height/2 + 10);
+    view.center = CGPointMake(_workingView.width/2 , view.height/2 + 10 + 30); // edit ichepo
+   // view.frame = CGRectMake(_workingView.width/2, view.height/2 + 10, view.frame.size.width, 200);
+  
+    
+    NSLog(@"text view height: %f",view.frame.size.height);
     
     [_workingView addSubview:view];
     [_CLTextView setActiveTextView:view];
@@ -493,7 +499,7 @@ const CGFloat MAX_FONT_SIZE = 50.0;
         [self addSubview:_label];
         
         CGSize size = [_label sizeThatFits:CGSizeMake(FLT_MAX, FLT_MAX)];
-        _label.frame = CGRectMake(16, 16, size.width, size.height);
+        _label.frame = CGRectMake(16, 16, size.width, size.height );
         self.frame = CGRectMake(0, 0, size.width + 32, size.height + 32);
         
         _deleteButton = [UIButton buttonWithType:UIButtonTypeCustom];
@@ -557,13 +563,15 @@ const CGFloat MAX_FONT_SIZE = 50.0;
     _label.transform = CGAffineTransformIdentity;
     
     CGSize size = [_label sizeThatFits:CGSizeMake(width / (15/MAX_FONT_SIZE), FLT_MAX)];
-    _label.frame = CGRectMake(16, 16, size.width, size.height);
+    _label.frame = CGRectMake(16, 16, size.width + 15, size.height + 30); // edit ichecpo
     
-    CGFloat viewW = (_label.width + 32);
+   CGFloat viewW = (_label.width + 32);
     CGFloat viewH = _label.font.lineHeight;
     
     CGFloat ratio = MIN(width / viewW, lineHeight / viewH);
     [self setScale:ratio];
+    
+    NSLog(@"label height : %f",_label.font.lineHeight);
 }
 
 - (void)setScale:(CGFloat)scale
