@@ -223,3 +223,5 @@ tool.optionalInfo[@"stickerPath"] = @"yourStickerPath";
 License
 ---
 CLImageEditor is released under the MIT License, see [LICENSE](LICENSE).
+
+test fork
