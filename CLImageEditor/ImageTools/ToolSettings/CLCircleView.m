@@ -16,6 +16,7 @@
         self.backgroundColor = [UIColor clearColor];
         
         self.color = [UIColor blackColor];
+        //self.color = [UIColor clearColor];
         self.radius = 1;
         
         self.borderColor = [UIColor clearColor];

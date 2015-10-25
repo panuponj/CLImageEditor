@@ -8,7 +8,11 @@
 #import "_CLImageEditorViewController.h"
 
 #import "CLImageToolBase.h"
+#import "_CLStickerView.h"
+#import "_CLTextView.h"
 
+
+static NSString* const CLTextViewInActiveViewDidTapNotification = @"CLTextViewInActiveViewDidTapNotificationString";
 
 #pragma mark- _CLImageEditorViewController
 
@@ -131,7 +135,7 @@
 - (void)initMenuScrollView
 {
     if(self.menuView==nil){
-        UIScrollView *menuScroll = [[UIScrollView alloc] initWithFrame:CGRectMake(0, 0, self.view.width, 150)];
+        UIScrollView *menuScroll = [[UIScrollView alloc] initWithFrame:CGRectMake(0, 0, self.view.width, 110)];//150
         menuScroll.top = self.view.height - menuScroll.height;
         menuScroll.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleTopMargin;
         menuScroll.showsHorizontalScrollIndicator = NO;
@@ -218,10 +222,13 @@
     if(_imageView==nil){
         _imageView = [UIImageView new];
         _containerView = [[UIView alloc]init];
+        
       //  _containerView.frame = _scrollView.frame;
         _containerView.frame = CGRectMake(0, 0, _scrollView.frame.size.width, _scrollView.frame.size.height);
+        
     //   [_scrollView addSubview:_imageView];
         [_scrollView addSubview:_containerView];
+        _decorateView = [[UIView alloc]initWithFrame:[_scrollView convertRect:_containerView.frame fromView:_containerView.superview]];
       // bool touchShouldCancel =    [_scrollView touchesShouldCancelInContentView:_imageView];
         //[self resetUiViewFrame];
         //[_scrollView addSubview:_uiView];
@@ -239,6 +246,13 @@
     [doubleTap setNumberOfTapsRequired:2];
     
     [_scrollView addGestureRecognizer:doubleTap];
+    
+    
+    UITapGestureRecognizer *Tap = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(handleTap:)];
+    
+    [Tap setNumberOfTapsRequired:1];
+    
+    [_scrollView addGestureRecognizer:Tap];
     
 }
 
@@ -439,7 +453,7 @@
 
 - (void)setMenuView
 {
-    CGFloat x = (self.view.bounds.size.width - 210)/2 ;  // set to 50 if want to middle
+    CGFloat x = (self.view.bounds.size.width - 140)/2 ;  // set to 50 if want to middle
     CGFloat W = 70;
     CGFloat H = _menuView.height;
     
@@ -658,7 +672,7 @@
 - (IBAction)pushedDoneBtn:(id)sender
 {
     self.view.userInteractionEnabled = NO;
-    
+  /*
     [self.currentTool executeWithCompletionBlock:^(UIImage *image, NSError *error, NSDictionary *userInfo) {
         if(error){
             UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"Error" message:error.localizedDescription delegate:nil cancelButtonTitle:@"OK" otherButtonTitles:nil];
@@ -673,6 +687,28 @@
         }
         self.view.userInteractionEnabled = YES;
     }];
+   
+   */
+    
+    [self.currentTool executeWithCompletionViewBlock:^(UIView *view, NSError *error, NSDictionary *userInfo) {
+        if(error){
+            UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"Error" message:error.localizedDescription delegate:nil cancelButtonTitle:@"OK" otherButtonTitles:nil];
+            [alert show];
+        }
+        else if(view){
+          //  _originalImage = image;
+            _decorateView = view;
+            
+            [self resetImageViewFrame];
+            self.currentTool = nil;
+        }
+        
+        self.view.userInteractionEnabled = YES;
+        
+    }
+    ];
+
+    
 }
 
 - (void)pushedCloseBtn:(id)sender
@@ -695,7 +731,15 @@
 {
     if(self.targetImageView==nil){
         if([self.delegate respondsToSelector:@selector(imageEditor:didFinishEdittingWithImage:)]){
-            [self.delegate imageEditor:self didFinishEdittingWithImage:_originalImage];
+            
+            [self.scrollView setZoomScale:1.0 animated:YES];
+            
+            
+           /* NSNotification *n = [NSNotification notificationWithName:CLTextViewInActiveViewDidTapNotification object:self userInfo:nil];
+            [[NSNotificationCenter defaultCenter] performSelectorOnMainThread:@selector(postNotification:) withObject:n waitUntilDone:YES];*/
+            [self clearActiveSubview:_decorateView];
+            
+            [self.delegate imageEditor:self didFinishEdittingWithImage:[self buildImage:_imageView.image]];
         }
         else{
             [self dismissViewControllerAnimated:YES completion:nil];
@@ -706,6 +750,61 @@
         [self restoreImageView:NO];
     }
 }
+
+
+- (void)clearActiveSubview:(UIView *)view {
+    
+    // Get the subviews of the view
+    NSArray *subviews = [view subviews];
+    
+    // Return if there are no subviews
+    if ([subviews count] == 0) return; // COUNT CHECK LINE
+    
+    [_CLStickerView setActiveStickerView:nil];
+    [_CLTextView setActiveTextView:nil];
+    /*
+    
+    for (UIView *subview in subviews) {
+        
+        // Do what you want to do with the subview
+        NSLog(@"%@", subview);
+        
+        // List the subviews of subview
+        if ([subview isKindOfClass:[_CLStickerView class]]) {
+             NSLog(@"%@", subview);
+          //  _CLStickerView *stickerView = (_CLStickerView *) subview;
+            [_CLStickerView setActiveStickerView:nil];
+              [_CLTextView setActiveTextView:nil];
+            
+        }
+    }*/
+}
+
+
+
+- (UIImage*)buildImage:(UIImage*)image
+{
+   
+    
+    
+    UIGraphicsBeginImageContextWithOptions(image.size, NO, image.scale);
+    
+    [image drawAtPoint:CGPointZero];
+    
+    CGFloat scale = image.size.width / _decorateView.width;
+    CGFloat scaleY = image.size.height / _decorateView.height;
+    
+    // CGFloat scale = 1;
+    CGContextScaleCTM(UIGraphicsGetCurrentContext(), scale, scaleY);
+    [_decorateView.layer renderInContext:UIGraphicsGetCurrentContext()];
+    
+    UIImage *tmp = UIGraphicsGetImageFromCurrentImageContext();
+    
+    UIGraphicsEndImageContext();
+    
+    return tmp;
+}
+
 
 #pragma mark- ScrollView delegate
 
@@ -747,7 +846,7 @@
 */
 
 - (void)handleDoubleTap:(UIGestureRecognizer *)gestureRecognizer {
-    
+    /*
     if (_scrollView.zoomScale > _scrollView.minimumZoomScale && _scrollView.zoomScale == _scrollView.maximumZoomScale){
         checkZoomImage = YES;
     }
@@ -774,8 +873,19 @@
             [_scrollView setZoomScale:currentZoomScale animated:YES];
         }
         
-    }
+    }*/
+    [_CLStickerView setActiveStickerView:nil];
+    [_CLTextView setActiveTextView:nil];
+     [_scrollView setZoomScale:_scrollView.minimumZoomScale animated:YES];
 }
 
+
+- (void)handleTap:(UIGestureRecognizer *)gestureRecognizer {
+    
+    [_CLTextView setActiveSettingView:nil];
+    [_CLStickerView setActiveStickerView:nil];
+    [_CLTextView setActiveTextView:nil];
+    [_scrollView setZoomScale:_scrollView.minimumZoomScale animated:YES];
+}
 
 @end

@@ -78,6 +78,11 @@
     completionBlock(self.editor.imageView.image, nil, nil);
 }
 
+- (void)executeWithCompletionViewBlock:(void(^)(UIView *view, NSError *error, NSDictionary *userInfo))completionBlock
+{
+    
+}
+
 - (UIImage*)imageForKey:(NSString*)key defaultImageName:(NSString*)defaultImageName
 {
     NSString *iconName = self.toolInfo.optionalInfo[key];

@@ -19,6 +19,7 @@
 @property (nonatomic, strong) UIView  *uiView;
 @property (nonatomic, weak) IBOutlet UIScrollView *menuView;
 @property (nonatomic, readonly) UIScrollView *scrollView;
+@property (nonatomic,strong) UIView *decorateView;
 
 - (IBAction)pushedCloseBtn:(id)sender;
 - (IBAction)pushedFinishBtn:(id)sender;

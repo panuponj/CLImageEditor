@@ -13,9 +13,13 @@
 #import "CLTextLabel.h"
 
 #import "CLTextSettingView.h"
+#import "_CLTextView.h"
+#import "_CLStickerView.h"
 
 static NSString* const CLTextViewActiveViewDidChangeNotification = @"CLTextViewActiveViewDidChangeNotificationString";
+static NSString* const CLSettingViewActiveViewDidChangeNotification = @"CLSettingViewActiveViewDidChangeNotificationString";
 static NSString* const CLTextViewActiveViewDidTapNotification = @"CLTextViewActiveViewDidTapNotificationString";
+static NSString* const CLTextViewInActiveViewDidTapNotification = @"CLTextViewInActiveViewDidTapNotificationString";
 
 static NSString* const kCLTextToolDeleteIconName = @"deleteIconAssetsName";
 static NSString* const kCLTextToolCloseIconName = @"closeIconAssetsName";
@@ -26,7 +30,7 @@ static NSString* const kCLTextToolAlignLeftIconName = @"alignLeftIconAssetsName"
 static NSString* const kCLTextToolAlignCenterIconName = @"alignCenterIconAssetsName";
 static NSString* const kCLTextToolAlignRightIconName = @"alignRightIconAssetsName";
 
-
+/*
 @interface _CLTextView : UIView
 @property (nonatomic, strong) NSString *text;
 @property (nonatomic, strong) UIFont *font;
@@ -36,12 +40,13 @@ static NSString* const kCLTextToolAlignRightIconName = @"alignRightIconAssetsNam
 @property (nonatomic, assign) NSTextAlignment textAlignment;
 
 + (void)setActiveTextView:(_CLTextView*)view;
++ (void)setActiveTextViewWhenTap:(_CLTextView*)view;
 - (id)initWithTool:(CLTextTool*)tool;
 - (void)setScale:(CGFloat)scale;
 - (void)sizeToFitWithMaxWidth:(CGFloat)width lineHeight:(CGFloat)lineHeight;
 
 @end
-
+*/
 
 
 @interface CLTextTool()
@@ -114,16 +119,30 @@ static NSString* const kCLTextToolAlignRightIconName = @"alignRightIconAssetsNam
     
     
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(activeTextViewDidChange:) name:CLTextViewActiveViewDidChangeNotification object:nil];
+    
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(settingViewDidChange:) name:CLSettingViewActiveViewDidChangeNotification object:nil];
+    
+    
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(activeTextViewDidTap:) name:CLTextViewActiveViewDidTapNotification object:nil];
+    
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(inactiveTextViewDidTap:) name:CLTextViewInActiveViewDidTapNotification object:nil];
     
     _menuScroll = [[UIScrollView alloc] initWithFrame:self.editor.menuView.frame];
     _menuScroll.backgroundColor = self.editor.menuView.backgroundColor;
     _menuScroll.showsHorizontalScrollIndicator = NO;
     [self.editor.view addSubview:_menuScroll];
     
-    _workingView = [[UIView alloc] initWithFrame:[self.editor.view convertRect:self.editor.imageView.frame fromView:self.editor.imageView.superview]];
+   /*
+    _workingView = [[UIView alloc] initWithFrame:[self.editor.view convertRect:self.editor.imageView.frame fromView:self.editor.imageView.superview]];*/
+    
+    
+    _workingView = self.editor.decorateView;
+    
+    
+    
     _workingView.clipsToBounds = YES;
-    [self.editor.view addSubview:_workingView];
+   // [self.editor.view addSubview:_workingView];
+    [self.editor.containerView addSubview:_workingView];
     
     _settingView = [[CLTextSettingView alloc] initWithFrame:CGRectMake(0, 0, self.editor.view.width, 180)];
     _settingView.top = _menuScroll.top - _settingView.height;
@@ -158,7 +177,7 @@ static NSString* const kCLTextToolAlignRightIconName = @"alignRightIconAssetsNam
     
     [_settingView endEditing:YES];
     [_settingView removeFromSuperview];
-    [_workingView removeFromSuperview];
+   // [_workingView removeFromSuperview];
     
     [UIView animateWithDuration:kCLImageToolAnimationDuration
                      animations:^{
@@ -181,6 +200,25 @@ static NSString* const kCLTextToolAlignRightIconName = @"alignRightIconAssetsNam
         });
     });
 }
+
+- (void)executeWithCompletionViewBlock:(void (^)(UIView *, NSError *, NSDictionary *))completionBlock
+{
+    [_CLTextView setActiveTextView:nil];
+    [_CLStickerView setActiveStickerView:nil];
+    [self.editor.scrollView setZoomScale:1.0 animated:YES];
+    
+    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+        // UIImage *image = [self buildImage:_originalImage];
+        UIView *decorateView = _workingView;
+        
+        dispatch_async(dispatch_get_main_queue(), ^{
+            completionBlock(decorateView, nil, nil);
+        });
+    });
+}
+
+
+
 
 #pragma mark-
 
@@ -244,9 +282,21 @@ static NSString* const kCLTextToolAlignRightIconName = @"alignRightIconAssetsNam
     self.selectedTextView = notification.object;
 }
 
+
+- (void)settingViewDidChange:(NSNotification*)notification
+{
+   [self hideSettingView];
+}
+
+
 - (void)activeTextViewDidTap:(NSNotification*)notification
 {
     [self beginTextEditting];
+}
+
+- (void)inactiveTextViewDidTap:(NSNotification*)notification
+{
+    [self hideSettingView];
 }
 
 - (void)setMenu
@@ -295,8 +345,13 @@ static NSString* const kCLTextToolAlignRightIconName = @"alignRightIconAssetsNam
                 break;
         }
         
-        [_menuScroll addSubview:view];
-        x += W;
+        NSLog(@"tag: %ld",(long)view.tag);
+        if (view.tag != 3) {
+            [_menuScroll addSubview:view];
+            x += W;
+        }
+        
+        
     }
     _menuScroll.contentSize = CGSizeMake(MAX(x, _menuScroll.frame.size.width+1), 0);
 }
@@ -340,6 +395,7 @@ static NSString* const kCLTextToolAlignRightIconName = @"alignRightIconAssetsNam
     view.borderColor = _settingView.selectedBorderColor;
     view.borderWidth = _settingView.selectedBorderWidth;
    view.font = _settingView.selectedFont;
+    view.settingView = _settingView;
   // view.font = [ UIFont fontWithName: @"torsilp-wadkhen" size: 18.0 ];
     //NSLog(@"font size: %f",_settingView.selectedFont.pointSize) ;
     NSLog(@"before ratio text view height: %f",view.frame.size.height);
@@ -355,6 +411,7 @@ static NSString* const kCLTextToolAlignRightIconName = @"alignRightIconAssetsNam
     [_CLTextView setActiveTextView:view];
     
     [self beginTextEditting];
+    
 }
 
 - (void)hideSettingView
@@ -447,11 +504,11 @@ static NSString* const kCLTextToolAlignRightIconName = @"alignRightIconAssetsNam
 
 
 
-const CGFloat MAX_FONT_SIZE = 50.0;
+//const CGFloat MAX_FONT_SIZE = 50.0;
 
 
 #pragma mark- _CLTextView
-
+/*
 @implementation _CLTextView
 {
     CLTextLabel *_label;
@@ -465,10 +522,10 @@ const CGFloat MAX_FONT_SIZE = 50.0;
     CGFloat _initialArg;
     CGFloat _initialScale;
 }
-
+static _CLTextView *activeView = nil;
 + (void)setActiveTextView:(_CLTextView*)view
 {
-    static _CLTextView *activeView = nil;
+    
     if(view != activeView){
         [activeView setAvtive:NO];
         activeView = view;
@@ -478,6 +535,32 @@ const CGFloat MAX_FONT_SIZE = 50.0;
         
         NSNotification *n = [NSNotification notificationWithName:CLTextViewActiveViewDidChangeNotification object:view userInfo:nil];
         [[NSNotificationCenter defaultCenter] performSelectorOnMainThread:@selector(postNotification:) withObject:n waitUntilDone:NO];
+    }
+}
+
++ (void)setActiveTextViewWhenTap:(_CLTextView*)view
+{
+    //static _CLTextView *activeView = nil;
+    if(view != activeView){
+        [activeView setAvtive:NO];
+        activeView = view;
+        [activeView setAvtive:YES];
+        
+        [activeView.superview bringSubviewToFront:activeView];
+        NSNotification *nn = [NSNotification notificationWithName:CLTextViewActiveViewDidTapNotification object:self userInfo:nil];
+        [[NSNotificationCenter defaultCenter] performSelectorOnMainThread:@selector(postNotification:) withObject:nn waitUntilDone:NO];
+        
+        NSNotification *n = [NSNotification notificationWithName:CLTextViewActiveViewDidChangeNotification object:view userInfo:nil];
+        [[NSNotificationCenter defaultCenter] performSelectorOnMainThread:@selector(postNotification:) withObject:n waitUntilDone:NO];
+    }
+    else
+    {
+        [activeView setAvtive:NO];
+        activeView = nil;
+        
+        NSNotification *n = [NSNotification notificationWithName:CLTextViewInActiveViewDidTapNotification object:self userInfo:nil];
+        [[NSNotificationCenter defaultCenter] performSelectorOnMainThread:@selector(postNotification:) withObject:n waitUntilDone:NO];
+        
     }
 }
 
@@ -687,11 +770,12 @@ const CGFloat MAX_FONT_SIZE = 50.0;
 
 - (void)viewDidTap:(UITapGestureRecognizer*)sender
 {
+    NSLog(@"tap label");
     if(self.active){
         NSNotification *n = [NSNotification notificationWithName:CLTextViewActiveViewDidTapNotification object:self userInfo:nil];
         [[NSNotificationCenter defaultCenter] performSelectorOnMainThread:@selector(postNotification:) withObject:n waitUntilDone:NO];
     }
-    [[self class] setActiveTextView:self];
+    [[self class] setActiveTextViewWhenTap:self];
 }
 
 - (void)viewDidPan:(UIPanGestureRecognizer*)sender
@@ -732,5 +816,5 @@ const CGFloat MAX_FONT_SIZE = 50.0;
 }
 
 @end
-
+*/
 

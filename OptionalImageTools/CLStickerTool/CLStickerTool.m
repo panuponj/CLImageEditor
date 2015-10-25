@@ -12,22 +12,26 @@
 #import "PFStickerShopTBViewController.h"
 #import  <Parse/Parse.h>
 #import  <ParseUI/PFImageView.h>
+#import "_CLStickerView.h"
+#import "_CLTextView.h"
 
-
+/*
 static NSString* const kCLStickerToolStickerPathKey = @"stickerPath";
 static NSString* const kCLStickerToolDeleteIconName = @"deleteIconAssetsName";
-
+*/
+/*
 @interface _CLStickerView : UIView
 @property (nonatomic,strong) UIPanGestureRecognizer *panGR;
 @property (nonatomic,strong) UIPanGestureRecognizer *circlePanGR;
 @property (nonatomic,strong) UITapGestureRecognizer *tapGR;
 
 + (void)setActiveStickerView:(_CLStickerView*)view;
++ (void)setActiveStickerViewWhenTap:(_CLStickerView*)view;
 - (UIImageView*)imageView;
 - (id)initWithImage:(UIImage *)image tool:(CLStickerTool*)tool;
 - (void)setScale:(CGFloat)scale;
 @end
-
+*/
 
 
 @implementation CLStickerTool
@@ -43,10 +47,11 @@ static NSString* const kCLStickerToolDeleteIconName = @"deleteIconAssetsName";
     UIView *_stickerView;
     int *tagButton ;
     NSInteger countSticker;
-    NSMutableArray *stickerFiles;
+    
     NSMutableArray *stickerId;
     NSURL *docDirectoryURL;
     NSString *documentsDirectory;
+    NSMutableArray *listExisingSticker;
 }
 
 + (NSArray*)subtools
@@ -128,7 +133,14 @@ static NSString* const kCLStickerToolDeleteIconName = @"deleteIconAssetsName";
   //  _workingView = [[UIView alloc] initWithFrame:[self.editor.view convertRect:self.editor.imageView.frame fromView:self.editor.imageView.superview]];
    // _workingView = [[UIView alloc]initWithFrame:CGRectMake(0, 0, self.editor.containerView.frame.size.width, self.editor.imageView.frame.size.height)];
     
+  /*
+    
     _workingView = [[UIView alloc]initWithFrame:[self.editor.containerView convertRect:self.editor.imageView.frame fromView:self.editor.imageView.superview]];
+    
+ */
+    
+    _workingView  = self.editor.decorateView;
+    
     
     //_workingView = [[UIView alloc]initWithFrame:[self.editor.view convertRect:self.editor.containerView.frame fromView:self.editor
                                           //       .containerView.superview]];
@@ -166,49 +178,62 @@ static NSString* const kCLStickerToolDeleteIconName = @"deleteIconAssetsName";
     
     
    
+    NSArray *paths = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory,
+                                                         NSUserDomainMask, YES);
+    documentsDirectory = [paths objectAtIndex:0];
+    documentsDirectory = [documentsDirectory stringByAppendingPathComponent:@"Sticker"];
     
+    NSError *error;
+    BOOL success = [[NSFileManager defaultManager]createDirectoryAtPath:documentsDirectory withIntermediateDirectories:YES attributes:nil error:&error];
+    if (!success) {
+        NSLog(@"Error creating data path: %@", [error localizedDescription]);
+    }
     
+    NSLog(@"dir %@",documentsDirectory);
     
+    stickerId = [[NSMutableArray alloc]init];
     PFQuery *query = [PFQuery queryWithClassName:@"Sticker"];
-    query.cachePolicy = kPFCachePolicyIgnoreCache;
+    [query orderByDescending:@"createdAt"];
+    [query whereKey:@"Seq_number" notContainedIn:[NSArray arrayWithArray:[self listFileAtPath:documentsDirectory]]];
+    query.cachePolicy = kPFCachePolicyCacheThenNetwork;
     [query findObjectsInBackgroundWithBlock:^(NSArray *objects, NSError *error) {
         if (!error) {
             // The find succeeded.
             NSLog(@"Successfully retrieved %lu scores.", (unsigned long)objects.count);
             // Do something with the found objects
-            countSticker = objects.count;
             
-            NSLog(@"count sticker : %ld",(long)countSticker);
-            stickerFiles = [[NSMutableArray alloc]init];
-            stickerId = [[NSMutableArray alloc]init];
+            
+           
+            
             for (PFObject *object in objects) {
                 NSLog(@"object id : %@", object.objectId);
                 
+                countSticker = objects.count;
                 
                 
-                NSArray *paths = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory,
-                                                                     NSUserDomainMask, YES);
-                documentsDirectory = [paths objectAtIndex:0];
-                documentsDirectory = [documentsDirectory stringByAppendingPathComponent:@"Sticker"];
-                NSError *error;
-                BOOL success = [[NSFileManager defaultManager]createDirectoryAtPath:documentsDirectory withIntermediateDirectories:YES attributes:nil error:&error];
-                if (!success) {
-                    NSLog(@"Error creating data path: %@", [error localizedDescription]);
-                }
+              
 
                 
                 
                 
                 PFFile *featureImageFile = [object objectForKey:@"sticker_file"];
+                NSString *seq_number = [object objectForKey:@"Seq_number"];
                 if (featureImageFile != nil) {
                     [featureImageFile getDataInBackgroundWithBlock:^(NSData *imageData, NSError *error) {
                         
+                     //   NSLog(@"file name: %@",featureImageFile.name);
+                        
+                        
                         UIImage *thumbnailImage = [UIImage imageWithData:imageData];
+                       
                         dispatch_async(dispatch_get_main_queue(), ^{
                             
-                            NSString* path = [documentsDirectory stringByAppendingPathComponent:[object.objectId stringByAppendingString:@".png" ]];
+                            NSString* path = [documentsDirectory stringByAppendingPathComponent:[seq_number stringByAppendingString:@".png" ]];
                             NSData* data = UIImagePNGRepresentation(thumbnailImage);
                             [data writeToFile:path atomically:YES];
+                            
+                           
+                            
                             [_collectionView reloadData];
                             
                             NSLog(@"path upload: %@",documentsDirectory);
@@ -220,8 +245,13 @@ static NSString* const kCLStickerToolDeleteIconName = @"deleteIconAssetsName";
                 
                 
                 
-                [stickerFiles addObject:(PFFile *)[object objectForKey:@"sticker_file" ] ];
-                [stickerId addObject:object.objectId];
+                [stickerId addObject:seq_number];
+                stickerId =  [NSMutableArray arrayWithArray:[stickerId sortedArrayUsingDescriptors:
+                                                             @[[NSSortDescriptor sortDescriptorWithKey:@"intValue"
+                                                                                             ascending:NO]]]];
+               
+               
+                
             }
             
             [_collectionView reloadData];
@@ -369,6 +399,10 @@ static NSString* const kCLStickerToolDeleteIconName = @"deleteIconAssetsName";
    // NSString *documentsDirectory = [paths objectAtIndex:0];
     //documentsDirectory = [documentsDirectory stringByAppendingPathComponent:@"Sticker"];
     //documentsDirectory = [documentsDirectory stringByAppendingString:@"Sticker"];
+    
+    NSLog(@"list file at path");
+    //[self listFileAtPath:documentsDirectory];
+    
     NSString* path = [documentsDirectory stringByAppendingPathComponent:[stickerId[indexPath.row] stringByAppendingString:@".png"]];
     UIImage* image = [UIImage imageWithContentsOfFile:path];
     
@@ -423,7 +457,7 @@ static NSString* const kCLStickerToolDeleteIconName = @"deleteIconAssetsName";
 {
     [self.editor resetZoomScaleWithAnimated:YES];
     
-    [_workingView removeFromSuperview];
+   /*[_workingView removeFromSuperview];*/
     
     [UIView animateWithDuration:kCLImageToolAnimationDuration
                      animations:^{
@@ -448,6 +482,25 @@ static NSString* const kCLStickerToolDeleteIconName = @"deleteIconAssetsName";
         });
     });
 }
+
+- (void)executeWithCompletionViewBlock:(void (^)(UIView *, NSError *, NSDictionary *))completionBlock
+{
+    [_CLStickerView setActiveStickerView:nil];
+    [_CLTextView setActiveTextView:nil];
+    
+    [self.editor.scrollView setZoomScale:1.0 animated:YES];
+    
+    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+        // UIImage *image = [self buildImage:_originalImage];
+        UIView *decorateView = _workingView;
+        
+        dispatch_async(dispatch_get_main_queue(), ^{
+            completionBlock(decorateView, nil, nil);
+        });
+    });
+}
+
+
 
 #pragma mark-
 
@@ -576,6 +629,8 @@ static NSString* const kCLStickerToolDeleteIconName = @"deleteIconAssetsName";
                             {
                                 [gr requireGestureRecognizerToFail:view.panGR];
                                 [gr requireGestureRecognizerToFail:view.circlePanGR];
+                                [gr requireGestureRecognizerToFail:view.tapGR];
+                                [gr requireGestureRecognizerToFail:view.pinchGR];
                             }
                         }
                         
@@ -609,6 +664,44 @@ static NSString* const kCLStickerToolDeleteIconName = @"deleteIconAssetsName";
      ];
 }
 
+
+-(NSMutableArray *)listFileAtPath:(NSString *)path
+{
+    //-----> LIST ALL FILES <-----//
+    NSLog(@"LISTING ALL FILES FOUND");
+    NSMutableArray *exisitingObjectId = [[NSMutableArray alloc]init];
+    
+    int count;
+    
+    NSArray *directoryContent = [[NSFileManager defaultManager] contentsOfDirectoryAtPath:path error:NULL];
+    
+   
+    for (count = 0; count < (int)[directoryContent count]; count++)
+    {
+        NSLog(@"File %d: %@", (count + 1), [directoryContent objectAtIndex:count]);
+        
+        
+        if (![[directoryContent objectAtIndex:count] isEqualToString:@".DS_Store" ])
+        {
+            [exisitingObjectId addObject:[[directoryContent objectAtIndex:count] stringByReplacingOccurrencesOfString:@".png" withString:@""]];
+            [stickerId addObject:[[directoryContent objectAtIndex:count] stringByReplacingOccurrencesOfString:@".png" withString:@""]];
+        }
+        
+    }
+
+    
+    
+    stickerId =  [NSMutableArray arrayWithArray:[stickerId sortedArrayUsingDescriptors:
+                                                 @[[NSSortDescriptor sortDescriptorWithKey:@"intValue"
+                                                                                 ascending:NO]]]];
+    
+    countSticker = stickerId.count;
+    NSLog(@"count sticker %lu",(unsigned long)stickerId.count);
+    [_collectionView reloadData];
+    return exisitingObjectId;
+}
+
+
 - (UIImage*)buildImage:(UIImage*)image
 {
     UIGraphicsBeginImageContextWithOptions(image.size, NO, image.scale);
@@ -630,7 +723,7 @@ static NSString* const kCLStickerToolDeleteIconName = @"deleteIconAssetsName";
 }
 
 @end
-
+/*
 
 @implementation _CLStickerView
 {
@@ -646,11 +739,13 @@ static NSString* const kCLStickerToolDeleteIconName = @"deleteIconAssetsName";
     CGFloat _initialScale;
     //UIPanGestureRecognizer *panGR;
     UIImageView *resizeIcon;
+    
 }
-
+static _CLStickerView *activeView = nil;
 + (void)setActiveStickerView:(_CLStickerView*)view
 {
-    static _CLStickerView *activeView = nil;
+    //static _CLStickerView *activeView = nil;
+    //activeView = nil;
     if(view != activeView){
         [activeView setAvtive:NO];
         activeView = view;
@@ -658,6 +753,24 @@ static NSString* const kCLStickerToolDeleteIconName = @"deleteIconAssetsName";
         
         [activeView.superview bringSubviewToFront:activeView];
     }
+  
+}
+
++ (void)setActiveStickerViewWhenTap:(_CLStickerView *)view
+{
+    if(view != activeView){
+        [activeView setAvtive:NO];
+        activeView = view;
+        [activeView setAvtive:YES];
+        
+        [activeView.superview bringSubviewToFront:activeView];
+    }
+    else
+    {
+        [activeView setAvtive:NO];
+        activeView = nil;
+    }
+
 }
 
 - (id)initWithImage:(UIImage *)image tool:(CLStickerTool*)tool
@@ -684,10 +797,22 @@ static NSString* const kCLStickerToolDeleteIconName = @"deleteIconAssetsName";
         _circleView = [[CLCircleView alloc] initWithFrame:CGRectMake(0, 0, 32, 32)];
         _circleView.center = CGPointMake(_imageView.width + _imageView.frame.origin.x, _imageView.height + _imageView.frame.origin.y);
         _circleView.autoresizingMask = UIViewAutoresizingFlexibleLeftMargin | UIViewAutoresizingFlexibleTopMargin;
+        
+        
+        */
+
+
+
+
+
    /*     _circleView.radius = 0.7;
         _circleView.color = [UIColor whiteColor];
         _circleView.borderColor = [UIColor blackColor];
         _circleView.borderWidth = 5;*/
+
+
+
+/*
         _circleView.backgroundColor = [UIColor clearColor];
         
         resizeIcon = [[UIImageView alloc]initWithFrame:CGRectMake(0, 0, 32, 32)];
@@ -712,10 +837,14 @@ static NSString* const kCLStickerToolDeleteIconName = @"deleteIconAssetsName";
 {
     _imageView.userInteractionEnabled = YES;
      _panGR = [[UIPanGestureRecognizer alloc] initWithTarget:self action:@selector(viewDidPan:)];
-    [_imageView addGestureRecognizer:[[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(viewDidTap:)]];
+    _tapGR = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(viewDidTap:)];
+     _circlePanGR = [[UIPanGestureRecognizer alloc] initWithTarget:self action:@selector(circleViewDidPan:)];
+    
+    [_imageView addGestureRecognizer:_tapGR];
     [_imageView addGestureRecognizer:_panGR];
-    _circlePanGR = [[UIPanGestureRecognizer alloc] initWithTarget:self action:@selector(circleViewDidPan:)];
+   
     [_circleView addGestureRecognizer:_circlePanGR];
+   // [_panGR requireGestureRecognizerToFail:_tapGR];
     
 }
 
@@ -793,7 +922,8 @@ static NSString* const kCLStickerToolDeleteIconName = @"deleteIconAssetsName";
 
 - (void)viewDidTap:(UITapGestureRecognizer*)sender
 {
-    [[self class] setActiveStickerView:self];
+    [[self class] setActiveStickerViewWhenTap:self];
+    NSLog(@"tap sticker view");
 }
 
 - (void)viewDidPan:(UIPanGestureRecognizer*)sender
@@ -833,4 +963,4 @@ static NSString* const kCLStickerToolDeleteIconName = @"deleteIconAssetsName";
     [self setScale:MAX(_initialScale * R / tmpR, 0.2)];
 }
 
-@end
+@end*/
