@@ -195,20 +195,22 @@ static NSString* const kCLStickerToolDeleteIconName = @"deleteIconAssetsName";
     PFQuery *query = [PFQuery queryWithClassName:@"Sticker"];
     [query orderByDescending:@"createdAt"];
     [query whereKey:@"Seq_number" notContainedIn:[NSArray arrayWithArray:[self listFileAtPath:documentsDirectory]]];
-    query.cachePolicy = kPFCachePolicyCacheThenNetwork;
+    query.cachePolicy = kPFCachePolicyNetworkOnly;
     [query findObjectsInBackgroundWithBlock:^(NSArray *objects, NSError *error) {
         if (!error) {
             // The find succeeded.
             NSLog(@"Successfully retrieved %lu scores.", (unsigned long)objects.count);
             // Do something with the found objects
             
-            
+            if (objects.count > 0) {
+                countSticker = countSticker + objects.count;
+            }
            
             
             for (PFObject *object in objects) {
                 NSLog(@"object id : %@", object.objectId);
                 
-                countSticker = objects.count;
+                
                 
                 
               
